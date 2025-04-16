@@ -1,0 +1,89 @@
+---
+name: Run DB Migrations
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  migrate-database:
+    name: Run ECS One-Off Task
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: eu-west-1
+      CLUSTER_NAME: sample-cluster
+      TASK_DEFINITION: db-migration-job
+      SUBNET_ID: subnet-abc123
+      SECURITY_GROUP_ID: sg-abc123
+      CONTAINER_NAME: migration
+      IMAGE_URI: db-iac:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsDeploymentRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch latest task definition
+        id: get-task-def
+        run: |
+          aws ecs describe-task-definition --task-definition $TASK_DEFINITION \
+            --region $AWS_REGION > taskdef.json
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: updated-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: new-task-def.json
+          container-name: $CONTAINER_NAME
+          image: $IMAGE_URI
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        id: register-task-def
+        with:
+          task-definition: ${{ steps.updated-task-def.outputs.task-definition }}
+
+      - name: Run ECS task
+        id: run-task
+        run: |
+          TASK_ARN=$(aws ecs run-task \
+            --cluster $CLUSTER_NAME \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_ID],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=DISABLED}" \
+            --task-definition ${{ steps.register-task-def.outputs.task_def_arn }} \
+            --region $AWS_REGION \
+            --started-by github-actions \
+            --query 'tasks[0].taskArn' \
+            --output text)
+
+          echo "task_arn=$TASK_ARN" >> $GITHUB_OUTPUT
+
+      - name: Wait for task to complete
+        run: |
+          aws ecs wait tasks-stopped \
+            --cluster $CLUSTER_NAME \
+            --tasks ${{ steps.run-task.outputs.task_arn }} \
+            --region $AWS_REGION
+
+      - name: Check task exit code
+        run: |
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster $CLUSTER_NAME \
+            --tasks ${{ steps.run-task.outputs.task_arn }} \
+            --region $AWS_REGION \
+            --query "tasks[0].containers[?name=='${CONTAINER_NAME}'].exitCode" \
+            --output text)
+
+          echo "Task exited with code $EXIT_CODE"
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Migration task failed with exit code $EXIT_CODE"
+            exit 1
+          fi
+
