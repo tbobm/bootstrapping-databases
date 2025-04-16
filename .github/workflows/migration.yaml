@@ -10,6 +10,7 @@ jobs:
   migrate-database:
     name: Run ECS One-Off Task
     runs-on: ubuntu-latest
+    if: false  # TODO: remove me !
     env:
       AWS_REGION: eu-west-1
       CLUSTER_NAME: sample-cluster
