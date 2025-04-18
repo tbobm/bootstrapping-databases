@@ -1,17 +1,17 @@
 schema "public" {
-  charset = "UTF8"
-  collate = "en_US.utf8"
 }
 
 table "papers" {
   schema = schema.public
   column "id" {
     type = serial
-    primary_key = true
   }
   column "title" {
     type = varchar(255)
     null = false
+  }
+  primary_key {
+    columns = [column.id]
   }
 }
 
@@ -19,7 +19,6 @@ table "mentions" {
   schema = schema.public
   column "id" {
     type = serial
-    primary_key = true
   }
   column "paper_id" {
     type = int
@@ -29,11 +28,13 @@ table "mentions" {
     type = text
     null = false
   }
+  primary_key {
+    columns = [column.id]
+  }
 
   foreign_key "mentions_paper_fk" {
     columns = [column.paper_id]
-    ref_table = table.papers
-    ref_columns = [column.id]
+    ref_columns = [table.papers.column.id]
     on_delete = "CASCADE"
   }
 }

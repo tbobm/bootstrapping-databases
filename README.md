@@ -27,6 +27,53 @@ It supports both local development and cloud deployment with CI/CD workflows.
 ```console
 $ docker compose up -d --wait --quiet-pull db
 $ docker compose run -it atlas schema inspect -u "postgres://user:pass@db:5432/local_db?sslmode=disable"
+...
+$ docker compose run -it atlas schema apply -u "postgres://user:pass@db:5432/local_db?sslmode=disable" --file file://schema/schema.hcl --auto-approve
+[+] Creating 1/1
+ ✔ Container bootstrapping-databases-for-local-and-prod-db-1  Running                                                                                                                    0.0s 
+Planning migration statements (2 in total):
+
+  -- create "papers" table:
+    -> CREATE TABLE "public"."papers" (
+         "id" serial NOT NULL,
+         "title" character varying(255) NOT NULL,
+         PRIMARY KEY ("id")
+       );
+  -- create "mentions" table:
+    -> CREATE TABLE "public"."mentions" (
+         "id" serial NOT NULL,
+         "paper_id" integer NOT NULL,
+         "document" text NOT NULL,
+         PRIMARY KEY ("id"),
+         CONSTRAINT "mentions_paper_fk" FOREIGN KEY ("paper_id") REFERENCES "public"."papers" ("id") ON DELETE CASCADE
+       );
+
+-------------------------------------------
+
+Applying approved migration (2 statements in total):
+
+  -- create "papers" table
+    -> CREATE TABLE "public"."papers" (
+         "id" serial NOT NULL,
+         "title" character varying(255) NOT NULL,
+         PRIMARY KEY ("id")
+       );
+  -- ok (24.597527ms)
+
+  -- create "mentions" table
+    -> CREATE TABLE "public"."mentions" (
+         "id" serial NOT NULL,
+         "paper_id" integer NOT NULL,
+         "document" text NOT NULL,
+         PRIMARY KEY ("id"),
+         CONSTRAINT "mentions_paper_fk" FOREIGN KEY ("paper_id") REFERENCES "public"."papers" ("id") ON DELETE CASCADE
+       );
+  -- ok (5.336047ms)
+
+  -------------------------
+  -- 10.896794ms
+  -- 1 migration
+  -- 2 sql statements
 ```
 
 ## Production deployment
