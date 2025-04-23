@@ -1,4 +1,4 @@
-# Database Bootstrapping — Local and Production setup
+# Database Bootstrapping - Local and Production setup
 
 This repository provides an example of how to manage PostgreSQL databases
 using **schema as code** (with [Atlas](https://atlasgo.io)) and
